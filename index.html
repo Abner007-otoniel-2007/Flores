@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ramito de Flores Amarillas</title>
+    <style>
+        body {
+            font-family: 'Georgia', serif;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f0f8ff 50%, #fff8dc 100%);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            animation: suave-entrada 1.5s ease-out;
+        }
+        
+        @keyframes suave-entrada {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        h1 {
+            color: #2c5530;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            font-size: 2.2em;
+            animation: brillo 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes brillo {
+            from { text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+            to { text-shadow: 2px 2px 8px rgba(255,215,0,0.3); }
+        }
+        
+        .container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+            border: 3px solid #90EE90;
+            backdrop-filter: blur(5px);
+        }
+        
+        #canvas-container {
+            text-align: center;
+        }
+        
+        #canvas {
+            border: 3px solid #90EE90;
+            border-radius: 15px;
+            background: linear-gradient(45deg, #f0f8ff 0%, #fff8dc 100%);
+        }
+    </style>
+</head>
+<body>
+
+    
+    <div class="container">
+        <div id="canvas-container">
+            <canvas id="canvas" width="800" height="600"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        let tiempoInicio = Date.now();
+        let animacionActiva = true;
+
+        const floresData = [
+            {x: 400, y: 120, tamaño: 1.3},  // Central grande
+            {x: 280, y: 140, tamaño: 1.0},  // Izquierda
+            {x: 520, y: 140, tamaño: 1.0},  // Derecha
+            {x: 340, y: 180, tamaño: 0.8},  // Pequeña izq
+            {x: 460, y: 180, tamaño: 0.8},  // Pequeña der
+        ];
+
+        function limpiarCanvas() {
+            const gradient = ctx.createLinearGradient(0, 0, 800, 600);
+            gradient.addColorStop(0, "#f0f8ff");
+            gradient.addColorStop(1, "#fff8dc");
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 800, 600);
+        }
+
+        function dibujarPetalo(x, y, radio, angulo, opacidad = 1) {
+            ctx.save();
+            ctx.globalAlpha = opacidad;
+            ctx.translate(x, y);
+            ctx.rotate(angulo * Math.PI / 180);
+            
+            ctx.fillStyle = "#FFD700";
+            ctx.strokeStyle = "#FFA500";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.ellipse(0, -radio/2, radio/3, radio/1.2, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function dibujarFlor(x, y, tamaño, progreso = 1) {
+            const radio = 40 * tamaño * progreso;
+            const opacidad = Math.min(progreso * 2, 1);
+            
+            // Dibujar 8 pétalos
+            for (let i = 0; i < 8; i++) {
+                const angulo = i * 45;
+                dibujarPetalo(x, y, radio, angulo, opacidad);
+            }
+            
+            // Centro café
+            ctx.save();
+            ctx.globalAlpha = opacidad;
+            ctx.fillStyle = "#8B4513";
+            ctx.strokeStyle = "#654321";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, 15 * tamaño * progreso, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function dibujarTallo(x1, y1, x2, y2, progreso = 1) {
+            const opacidad = Math.min(progreso * 1.5, 1);
+            
+            // Tallo que crece gradualmente
+            const currentX2 = x1 + (x2 - x1) * progreso;
+            const currentY2 = y1 + (y2 - y1) * progreso;
+            
+            ctx.save();
+            ctx.globalAlpha = opacidad;
+            ctx.strokeStyle = "#228B22";
+            ctx.lineWidth = 5;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(currentX2, currentY2);
+            ctx.stroke();
+            
+            // Hoja aparece cuando el tallo está a la mitad
+            if (progreso > 0.5) {
+                const medioX = (x1 + x2) / 2 + 15;
+                const medioY = (y1 + y2) / 2 + 20;
+                const hojaProgreso = (progreso - 0.5) * 2;
+                
+                ctx.globalAlpha = opacidad * hojaProgreso;
+                ctx.fillStyle = "#32CD32";
+                ctx.strokeStyle = "#228B22";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.ellipse(medioX, medioY, 10 * hojaProgreso, 18 * hojaProgreso, 0.3, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function animar() {
+            if (!animacionActiva) return;
+            
+            const tiempoTranscurrido = (Date.now() - tiempoInicio) / 1000; // segundos
+            limpiarCanvas();
+            
+
+            
+            const puntoBaseX = 400;
+            const puntoBaseY = 480;
+            
+            // Base del ramito (aparece en el segundo 1)
+            if (tiempoTranscurrido >= 1) {
+                const progresoBase = Math.min((tiempoTranscurrido - 1) / 0.5, 1);
+                const altura = 100 * progresoBase;
+                
+                ctx.save();
+                ctx.globalAlpha = progresoBase;
+                ctx.fillStyle = "#8B4513";
+                ctx.fillRect(385, puntoBaseY + (100 - altura), 30, altura);
+                ctx.restore();
+            }
+            
+            // Tallos (aparecen cada 0.8 segundos desde el segundo 2)
+            for (let i = 0; i < floresData.length; i++) {
+                const tiempoInicioTallo = 2 + (i * 0.8);
+                if (tiempoTranscurrido >= tiempoInicioTallo) {
+                    const progresoTallo = Math.min((tiempoTranscurrido - tiempoInicioTallo) / 1, 1);
+                    const flor = floresData[i];
+                    dibujarTallo(flor.x, flor.y + 30, puntoBaseX, puntoBaseY, progresoTallo);
+                }
+            }
+            
+            // Flores (aparecen cada 0.8 segundos desde el segundo 6)
+            for (let i = 0; i < floresData.length; i++) {
+                const tiempoInicioFlor = 6 + (i * 0.8);
+                if (tiempoTranscurrido >= tiempoInicioFlor) {
+                    const progresoFlor = Math.min((tiempoTranscurrido - tiempoInicioFlor) / 1.2, 1);
+                    const flor = floresData[i];
+                    dibujarFlor(flor.x, flor.y, flor.tamaño, progresoFlor);
+                }
+            }
+            
+            // Lazo final (aparece en el segundo 10)
+            if (tiempoTranscurrido >= 10) {
+                const progresoLazo = Math.min((tiempoTranscurrido - 10) / 0.8, 1);
+                
+                ctx.save();
+                ctx.globalAlpha = progresoLazo;
+                ctx.fillStyle = "#FF69B4";
+                ctx.fillRect(370, puntoBaseY - 10, 60, 15);
+                
+                ctx.beginPath();
+                ctx.arc(380, puntoBaseY - 2, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(420, puntoBaseY - 2, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            // Continuar animación
+            if (tiempoTranscurrido < 12) {
+                requestAnimationFrame(animar);
+            }
+        }
+
+        // Iniciar animación después de 1 segundo
+        setTimeout(() => {
+            tiempoInicio = Date.now();
+            animar();
+        }, 1000);
+    </script>
+</body>
+</html>
